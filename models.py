@@ -16,7 +16,6 @@ class User(Base):
     role = Column(String, nullable=False)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
-
     trainer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     clients = relationship("User", back_populates="trainer", foreign_keys="trainer_id")

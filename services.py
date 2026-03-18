@@ -1,9 +1,42 @@
 from datetime import datetime
 
 from flask import session
-
+from sqlalchemy.testing.suite.test_reflection import users
+from werkzeug.security import generate_password_hash, check_password_hash
 from database import SessionLocal
-from models import Plan, Meal
+from models import Plan, Meal, User
+
+def register_trainer(email, password, first_name, last_name):
+    session = SessionLocal()
+
+    existing_user = session.query(User).filter(User.email == email).first()
+    if existing_user:
+        raise ValueError("This email already exists!")
+
+    hashed_password = generate_password_hash(password)
+
+    user = User(email=email, password_hash=hashed_password, role="trainer",
+                       first_name=first_name, last_name=last_name, trainer_id=None)
+
+
+
+    session.add(user)
+    session.commit()
+
+    return user
+
+def login_user(email, password):
+    session =SessionLocal()
+
+    user = session.query(User).filter(User.email == email).first()
+    if not user:
+        raise ValueError("Invalid email or password")
+
+    if not check_password_hash(user.password_hash, password):
+        raise ValueError("Invalid email or password")
+
+    return user
+
 
 def create_plan(name, plan_type, start_date=None):
     session = SessionLocal()
@@ -57,3 +90,4 @@ def get_meals_for_plan(plan_id):
         return None
 
     return plan.meals
+
