@@ -3,6 +3,8 @@ from datetime import datetime
 from flask import session
 from sqlalchemy.testing.suite.test_reflection import users
 from werkzeug.security import generate_password_hash, check_password_hash
+
+from auth import generate_token
 from database import SessionLocal
 from models import Plan, Meal, User
 
@@ -26,6 +28,7 @@ def register_trainer(email, password, first_name, last_name):
     return user
 
 def login_user(email, password):
+
     session =SessionLocal()
 
     user = session.query(User).filter(User.email == email).first()
@@ -35,7 +38,9 @@ def login_user(email, password):
     if not check_password_hash(user.password_hash, password):
         raise ValueError("Invalid email or password")
 
-    return user
+    token = generate_token(user)
+
+    return token
 
 
 def create_plan(name, plan_type, start_date=None):

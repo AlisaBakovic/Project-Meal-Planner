@@ -1,7 +1,8 @@
-from flask import Flask, request, jsonify
-from database import engine, Base
-import models
+from flask import Flask, request, jsonify, session
+from database import engine, Base, SessionLocal
+from models import User
 from services import create_meal, get_plans, create_plan, get_meals_for_plan, get_plan_by_id
+from auth import decode_token
 
 app = Flask(__name__)
 
@@ -10,6 +11,25 @@ Base.metadata.create_all(engine)
 @app.route("/plans", methods=["POST"])
 def create_plan_route():
     data = request.json
+
+    authorization = request.headers.get("Authorization")
+
+
+
+
+    token = parts[1]
+
+
+
+    payload = decode_token(token)
+    user_id = payload["user_id"]
+
+    db = SessionLocal()
+    user = db.query(User).filter(User.id == user_id).first()
+    db.close()
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
     try:
         plan = create_plan(
@@ -21,6 +41,7 @@ def create_plan_route():
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+
 
 @app.route("/plans", methods=["GET"])
 def get_plans_route():
