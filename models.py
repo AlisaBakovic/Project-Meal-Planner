@@ -7,33 +7,42 @@ from sqlalchemy.testing.suite.test_reflection import users
 from database import Base
 from sqlalchemy import Float
 
+
 class User(Base):
-    __tablename__= "users"
+    __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
-    email = Column(String, nullable= False, unique=True)
+    email = Column(String, nullable=False, unique=True)
     password_hash = Column(String, nullable=False)
     role = Column(String, nullable=False)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     trainer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
-    clients = relationship("User", back_populates="trainer", foreign_keys="trainer_id")
-    trainer = relationship("User", back_populates= "clients", remote_side=[id])
-    client_plans = relationship("Plan", back_populates="client", foreign_keys="Plan.client_id")
-    trainer_plans = relationship("Plan", back_populates="trainer", foreign_keys="Plan.trainer_id")
+    clients = relationship("User", back_populates="trainer", foreign_keys=[trainer_id])
+    trainer = relationship("User", back_populates="clients", remote_side=[id])
+    client_plans = relationship(
+        "Plan", back_populates="client", foreign_keys="Plan.client_id"
+    )
+    trainer_plans = relationship(
+        "Plan", back_populates="trainer", foreign_keys="Plan.trainer_id"
+    )
     invites = relationship("Invite", back_populates="trainer")
 
+
 class Invite(Base):
-    __tablename__="invites"
+    __tablename__ = "invites"
 
     id = Column(Integer, primary_key=True)
     email = Column(String, nullable=False)
     trainer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     token = Column(String, nullable=False, unique=True)
     used = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),  nullable=False)
+    created_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
     expires_at = Column(DateTime)
+
     trainer = relationship("User", back_populates="invites")
 
 
@@ -48,17 +57,21 @@ class Plan(Base):
     trainer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     meals = relationship("Meal", back_populates="plan", cascade="all, delete-orphan")
-    client = relationship("User", back_populates="client_plans", foreign_keys=[client_id])
-    trainer = relationship("User", back_populates="trainer_plans", foreign_keys=[trainer_id])
-
+    client = relationship(
+        "User", back_populates="client_plans", foreign_keys=[client_id]
+    )
+    trainer = relationship(
+        "User", back_populates="trainer_plans", foreign_keys=[trainer_id]
+    )
 
     def to_dict(self):
         return {
             "id": self.id,
             "name": self.name,
             "plan_type": self.plan_type,
-            "start_date": self.start_date.isoformat() if self.start_date else None
-    }
+            "start_date": self.start_date.isoformat() if self.start_date else None,
+        }
+
 
 class Meal(Base):
     __tablename__ = "meals"
@@ -95,9 +108,6 @@ class Meal(Base):
             return 0
         return sum(f.grams * f.food_norm.carbs_per_g for f in self.foods)
 
-
-
-
     def to_dict(self):
         return {
             "id": self.id,
@@ -109,7 +119,6 @@ class Meal(Base):
             "total_fat": 0,
             "total_carbs": 0,
         }
-
 
 
 class Food(Base):
@@ -144,7 +153,6 @@ class FoodNorm(Base):
 
     foods = relationship("Food", back_populates="food_norm")
 
-
     def to_dict(self):
         return {
             "id": self.id,
@@ -153,5 +161,4 @@ class FoodNorm(Base):
             "protein_per_g": self.protein_per_g,
             "carbs_per_g": self.carbs_per_g,
             "fat_per_g": self.fat_per_g,
-
         }

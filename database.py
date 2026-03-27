@@ -5,4 +5,3 @@ Base = declarative_base()
 
 engine = create_engine("sqlite:///mealplanner.db")
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
-

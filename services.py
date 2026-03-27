@@ -8,6 +8,7 @@ from auth import generate_token
 from database import SessionLocal
 from models import Plan, Meal, User
 
+
 def register_trainer(email, password, first_name, last_name):
     session = SessionLocal()
 
@@ -17,19 +18,24 @@ def register_trainer(email, password, first_name, last_name):
 
     hashed_password = generate_password_hash(password)
 
-    user = User(email=email, password_hash=hashed_password, role="trainer",
-                       first_name=first_name, last_name=last_name, trainer_id=None)
-
-
+    user = User(
+        email=email,
+        password_hash=hashed_password,
+        role="trainer",
+        first_name=first_name,
+        last_name=last_name,
+        trainer_id=None,
+    )
 
     session.add(user)
     session.commit()
 
     return user
 
+
 def login_user(email, password):
 
-    session =SessionLocal()
+    session = SessionLocal()
 
     user = session.query(User).filter(User.email == email).first()
     if not user:
@@ -43,10 +49,10 @@ def login_user(email, password):
     return token
 
 
-def create_plan(name, plan_type, start_date=None):
+def create_plan(name, plan_type, client_id, trainer_id, start_date=None):
     session = SessionLocal()
 
-    if plan_type not in ["calendar","template"]:
+    if plan_type not in ["calendar", "template"]:
         raise ValueError("Invalid plan type")
 
     if plan_type == "calendar" and not start_date:
@@ -58,24 +64,47 @@ def create_plan(name, plan_type, start_date=None):
     if start_date:
         start_date = datetime.fromisoformat(start_date).date()
 
-    plan = Plan(name=name, plan_type=plan_type, start_date=start_date)
+    client = session.query(User).filter(User.id == client_id).first()
+
+    if not client:
+        raise ValueError("Client not found")
+    if client.trainer_id != trainer_id:
+        raise ValueError("This client does not belong to this trainer")
+
+    plan = Plan(
+        name=name,
+        plan_type=plan_type,
+        start_date=start_date,
+        client_id=client_id,
+        trainer_id=trainer_id,
+    )
 
     session.add(plan)
     session.commit()
+    session.refresh(plan)
 
     return plan
 
-def get_plans():
+
+def get_plans(user):
 
     session = SessionLocal()
-    plans = session.query(Plan).all()
+
+    if user.role == "trainer":
+        plans = session.query(Plan).filter(Plan.trainer_id == user.id).all()
+    elif user.role == "client":
+        plans = session.query(Plan).filter(Plan.client_id == user.id).all()
+    else:
+        raise ValueError("Undefined user")
     return plans
+
 
 def get_plan_by_id(plan_id):
 
     session = SessionLocal()
     plan = session.get(Plan, plan_id)
     return plan
+
 
 def create_meal(name, plan_id, day_number):
 
@@ -86,6 +115,7 @@ def create_meal(name, plan_id, day_number):
 
     return meal
 
+
 def get_meals_for_plan(plan_id):
 
     session = SessionLocal()
@@ -95,4 +125,3 @@ def get_meals_for_plan(plan_id):
         return None
 
     return plan.meals
-
