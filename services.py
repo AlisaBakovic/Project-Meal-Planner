@@ -106,6 +106,17 @@ def get_plan_by_id(plan_id):
     return plan
 
 
+def delete_plan(plan_id):
+
+    session = SessionLocal()
+
+    plan = Plan.query.get(plan_id)
+    session.delete(plan)
+    session.commit()
+
+    return plan
+
+
 def create_meal(name, plan_id, day_number):
 
     session = SessionLocal()
@@ -125,3 +136,17 @@ def get_meals_for_plan(plan_id):
         return None
 
     return plan.meals
+
+
+def get_clients_by_trainer(trainer_id):
+
+    session = SessionLocal()
+
+    clients = (
+        session.query(User)
+        .filter(User.trainer_id == trainer_id)
+        .filter(User.role == "client")
+        .all()
+    )
+
+    return clients

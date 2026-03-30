@@ -1,4 +1,6 @@
 from flask import Flask, request, jsonify, session
+from sqlalchemy.util import methods_equivalent
+
 from database import engine, Base, SessionLocal
 from models import User
 from services import (
@@ -8,6 +10,7 @@ from services import (
     get_meals_for_plan,
     get_plan_by_id,
     login_user,
+    get_clients_by_trainer,
 )
 from auth import decode_token, get_current_user
 from flask_cors import CORS
@@ -69,7 +72,7 @@ def get_plans_by_id(plan_id):
     plan = get_plan_by_id(plan_id)
 
     if not plan:
-        return jsonify({"error": "Plan not found"}, 404)
+        return jsonify({"error": "Plan not found"}), 404
     return jsonify(plan.to_dict())
 
 
@@ -91,6 +94,15 @@ def get_meals_by_plan_id(plan_id):
     meals = get_meals_for_plan(plan_id)
 
     return jsonify([m.to_dict() for m in meals])
+
+
+@app.route("/clients", methods=["GET"])
+def get_clients():
+
+    user = get_current_user()
+    clients = get_clients_by_trainer(user.id)
+
+    return jsonify([c.to_dict() for c in clients])
 
 
 if __name__ == "__main__":
