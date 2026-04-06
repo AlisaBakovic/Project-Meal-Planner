@@ -79,6 +79,7 @@ class Plan(Base):
             "id": self.id,
             "name": self.name,
             "plan_type": self.plan_type,
+            "client_id": self.client_id,
             "start_date": self.start_date.isoformat() if self.start_date else None,
         }
 

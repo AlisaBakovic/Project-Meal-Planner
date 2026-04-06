@@ -11,12 +11,14 @@ from services import (
     get_plan_by_id,
     login_user,
     get_clients_by_trainer,
+    delete_plan,
+    update_plan,
 )
 from auth import decode_token, get_current_user
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 Base.metadata.create_all(engine)
 
@@ -74,6 +76,34 @@ def get_plans_by_id(plan_id):
     if not plan:
         return jsonify({"error": "Plan not found"}), 404
     return jsonify(plan.to_dict())
+
+
+@app.route("/plans/<int:plan_id>", methods=["DELETE"])
+def delete_plan_by_id(plan_id):
+
+    try:
+        plan = delete_plan(plan_id)
+        return jsonify({"message": "Plan deleted"}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+
+
+@app.route("/plans/<int:plan_id>", methods=["PUT"])
+def update_plan_by_id(plan_id):
+
+    data = request.json
+
+    try:
+        plan = update_plan(
+            plan_id=plan_id,
+            name=data["name"],
+            plan_type=data["plan_type"],
+            start_date=data.get("start_date"),
+            client_id=data["client_id"],
+        )
+        return jsonify(plan.to_dict()), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
 
 
 @app.route("/plans/<int:plan_id>/meals", methods=["POST"])

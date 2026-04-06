@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from flask import session
+from sqlalchemy.cyextension.processors import str_to_date
 from sqlalchemy.testing.suite.test_reflection import users
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -63,6 +64,8 @@ def create_plan(name, plan_type, client_id, trainer_id, start_date=None):
 
     if start_date:
         start_date = datetime.fromisoformat(start_date).date()
+    else:
+        start_date = None
 
     client = session.query(User).filter(User.id == client_id).first()
 
@@ -110,9 +113,43 @@ def delete_plan(plan_id):
 
     session = SessionLocal()
 
-    plan = Plan.query.get(plan_id)
+    plan = session.query(Plan).filter(Plan.id == plan_id).first()
+
+    if not plan:
+        raise ValueError("Plan not found")
     session.delete(plan)
     session.commit()
+
+    return plan
+
+
+def update_plan(plan_id, name, plan_type, client_id, start_date=None):
+
+    session = SessionLocal()
+
+    plan = session.query(Plan).filter(Plan.id == plan_id).first()
+
+    if not plan:
+        raise ValueError("Plan not found")
+    if plan_type not in ["calendar", "template"]:
+        raise ValueError("Invalid plan type")
+    if plan_type == "calendar" and not start_date:
+        raise ValueError("Calendar plan type requires start_date")
+    if plan_type == "template" and start_date:
+        raise ValueError("Template plan cannot have start_date")
+
+    if start_date:
+        start_date = datetime.fromisoformat(start_date).date()
+    else:
+        start_date = None
+
+    plan.name = name
+    plan.plan_type = plan_type
+    plan.client_id = client_id
+    plan.start_date = start_date
+
+    session.commit()
+    session.refresh(plan)
 
     return plan
 
