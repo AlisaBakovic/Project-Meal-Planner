@@ -85,9 +85,7 @@ foods = [
     {"name": "olive oil", "calories": 884, "protein": 0, "carbs": 0, "fat": 100},
     {"name": "sunflower oil", "calories": 884, "protein": 0, "carbs": 0, "fat": 100},
     {"name": "cherry", "calories": 48, "protein": 0.8, "carbs": 11.7, "fat": 0.1},
-    {
-        "name": "wheat flour (dry)",
-        "calories": 364,
+    {"name": "wheat flour (dry)", "calories": 364,
         "protein": 10,
         "carbs": 76,
         "fat": 1,
