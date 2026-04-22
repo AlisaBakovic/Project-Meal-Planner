@@ -1,13 +1,12 @@
 from datetime import datetime
 
 from flask import session
-from sqlalchemy.cyextension.processors import str_to_date
-from sqlalchemy.testing.suite.test_reflection import users
+from sqlalchemy import or_
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from auth import generate_token
 from database import SessionLocal
-from models import Plan, Meal, User
+from models import Plan, Meal, User, FoodNorm, Food
 
 
 def register_trainer(email, password, first_name, last_name):
@@ -30,6 +29,7 @@ def register_trainer(email, password, first_name, last_name):
 
     session.add(user)
     session.commit()
+    session.refresh(user)
 
     return user
 
@@ -157,6 +157,7 @@ def update_plan(plan_id, name, plan_type, client_id, start_date=None):
 def create_meal(name, plan_id, day_number):
 
     session = SessionLocal()
+
     meal = Meal(name=name, plan_id=plan_id, day_number=day_number)
     session.add(meal)
     session.commit()
@@ -187,3 +188,64 @@ def get_clients_by_trainer(trainer_id):
     )
 
     return clients
+
+
+def create_food_norm(user, name, calories, protein, carbs, fat):
+
+    session = SessionLocal()
+
+    name = name.strip().lower()
+
+    existing = session.query(FoodNorm).filter(FoodNorm.name == name).first()
+
+    if existing:
+        raise ValueError("Food already exists.")
+
+    food = FoodNorm(
+        name=name,
+        created_by=user.id,
+        calories_per_g=float(calories or 0) / 100,
+        protein_per_g=float(protein or 0) / 100,
+        carbs_per_g=float(carbs or 0) / 100,
+        fat_per_g=float(fat or 0) / 100,
+    )
+
+    session.add(food)
+    session.commit()
+    session.refresh(food)
+
+    return food
+
+
+def get_food_norms(user):
+
+    session = SessionLocal()
+
+    foods = (
+        session.query(FoodNorm)
+        .filter(or_(FoodNorm.created_by.is_(None), FoodNorm.created_by == user.id))
+        .all()
+    )
+
+    return foods
+
+
+def create_food(meal_id, food_norm_id, grams):
+
+    session = SessionLocal()
+
+    meal = session.query(Meal).filter(Meal.id == meal_id).first()
+    if not meal:
+        raise ValueError("Meal not found")
+
+    food_norm = session.query(FoodNorm).filter(FoodNorm.id == food_norm_id).first()
+    if not food_norm:
+        raise ValueError("Food not found")
+
+    food = Food(meal_id=meal_id, food_norm_id=food_norm_id, grams=grams)
+
+    session.add(food)
+    session.commit()
+    session.refresh(food)
+
+    return food

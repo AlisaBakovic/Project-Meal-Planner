@@ -125,10 +125,10 @@ class Meal(Base):
             "name": self.name,
             "plan_id": self.plan_id,
             "day_number": self.day_number,
-            "total_calories": 0,
-            "total_protein": 0,
-            "total_fat": 0,
-            "total_carbs": 0,
+            "total_calories": self.total_calories,
+            "total_protein": self.total_protein,
+            "total_fat": self.total_fat,
+            "total_carbs": self.total_carbs,
         }
 
 
@@ -156,11 +156,12 @@ class FoodNorm(Base):
     __tablename__ = "food_norms"
 
     id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False, unique=True)
-    calories_per_g = Column(Float)
-    protein_per_g = Column(Float)
-    carbs_per_g = Column(Float)
-    fat_per_g = Column(Float)
+    name = Column(String, nullable=False, unique=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    calories_per_g = Column(Float, nullable=False)
+    protein_per_g = Column(Float, nullable=False)
+    carbs_per_g = Column(Float, nullable=False)
+    fat_per_g = Column(Float, nullable=False)
 
     foods = relationship("Food", back_populates="food_norm")
 
@@ -168,6 +169,7 @@ class FoodNorm(Base):
         return {
             "id": self.id,
             "name": self.name,
+            "created_by": self.created_by,
             "calories_per_g": self.calories_per_g,
             "protein_per_g": self.protein_per_g,
             "carbs_per_g": self.carbs_per_g,

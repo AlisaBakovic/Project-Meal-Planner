@@ -39,7 +39,7 @@ def get_current_user():
 
     parts = authorization.split(" ")
 
-    if len(parts) != 2 and parts[0] != "Bearer":
+    if len(parts) != 2 or parts[0] != "Bearer":
         raise ValueError("Invalid token format")
 
     token = parts[1]
