@@ -1,9 +1,6 @@
 from datetime import datetime, timezone
-
 from sqlalchemy import Column, Integer, String, ForeignKey, Date, Boolean, DateTime
 from sqlalchemy.orm import relationship
-from sqlalchemy.testing.suite.test_reflection import users
-
 from database import Base
 from sqlalchemy import Float
 
@@ -80,6 +77,7 @@ class Plan(Base):
             "name": self.name,
             "plan_type": self.plan_type,
             "client_id": self.client_id,
+            "trainer_id": self.trainer_id,
             "start_date": self.start_date.isoformat() if self.start_date else None,
         }
 
@@ -99,25 +97,25 @@ class Meal(Base):
     def total_calories(self):
         if not self.foods:
             return 0
-        return sum(f.grams * f.food_norm.calories_per_g for f in self.foods)
+        return round(sum(f.grams * f.food_norm.calories_per_g for f in self.foods),2)
 
     @property
     def total_protein(self):
         if not self.foods:
             return 0
-        return sum(f.grams * f.food_norm.protein_per_g for f in self.foods)
+        return round(sum(f.grams * f.food_norm.protein_per_g for f in self.foods), 2)
 
     @property
     def total_fat(self):
         if not self.foods:
             return 0
-        return sum(f.grams * f.food_norm.fat_per_g for f in self.foods)
+        return round(sum(f.grams * f.food_norm.fat_per_g for f in self.foods),2)
 
     @property
     def total_carbs(self):
         if not self.foods:
             return 0
-        return sum(f.grams * f.food_norm.carbs_per_g for f in self.foods)
+        return round(sum(f.grams * f.food_norm.carbs_per_g for f in self.foods), 2)
 
     def to_dict(self):
         return {
@@ -129,6 +127,7 @@ class Meal(Base):
             "total_protein": self.total_protein,
             "total_fat": self.total_fat,
             "total_carbs": self.total_carbs,
+            "foods": [f.to_dict() for f in self.foods],
         }
 
 

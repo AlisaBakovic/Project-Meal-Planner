@@ -1,12 +1,14 @@
 from datetime import datetime, timedelta
 import jwt
 from flask import request
-
 from database import SessionLocal
 from models import User
+import os
+from dotenv import load_dotenv
 
-SECRET_KEY = "supersecretkey"
+load_dotenv()
 
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")
 
 def generate_token(user):
 
@@ -40,7 +42,7 @@ def get_current_user():
     parts = authorization.split(" ")
 
     if len(parts) != 2 or parts[0] != "Bearer":
-        raise ValueError("Invalid token format")
+        return None
 
     token = parts[1]
 
