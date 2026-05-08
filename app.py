@@ -13,7 +13,7 @@ from services import (
     register_trainer,
     create_food,
     create_food_norm,
-    get_food_norms, delete_food, update_food,
+    get_food_norms, delete_food, update_food, delete_meal,
 )
 from auth import decode_token, get_current_user
 from flask_cors import CORS
@@ -161,6 +161,22 @@ def create_meal_route(plan_id):
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
+@app.route("/meals/<int:meal_id>", methods=["DELETE"])
+def delete_meal_route(meal_id):
+
+    try:
+        user = get_current_user()
+    except Exception:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        delete_meal(meal_id)
+        return jsonify({"message": "Meal deleted"}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
 
 @app.route("/plans/<int:plan_id>/meals", methods=["GET"])
 def get_meals_by_plan_id(plan_id):
@@ -261,7 +277,7 @@ def delete_food_route(food_id):
         return jsonify({"error": str(e)}), 404
 
 @app.route("/foods/<int:food_id>", methods=["PUT"])
-def update_route(food_id):
+def update_food_route(food_id):
 
     user = get_current_user()
     if not user:

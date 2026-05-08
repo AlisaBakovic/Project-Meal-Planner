@@ -97,25 +97,25 @@ class Meal(Base):
     def total_calories(self):
         if not self.foods:
             return 0
-        return round(sum(f.grams * f.food_norm.calories_per_g for f in self.foods),2)
+        return round(sum(f.grams * f.food_norm.calories_per_g for f in self.foods),1)
 
     @property
     def total_protein(self):
         if not self.foods:
             return 0
-        return round(sum(f.grams * f.food_norm.protein_per_g for f in self.foods), 2)
+        return round(sum(f.grams * f.food_norm.protein_per_g for f in self.foods), 1)
 
     @property
     def total_fat(self):
         if not self.foods:
             return 0
-        return round(sum(f.grams * f.food_norm.fat_per_g for f in self.foods),2)
+        return round(sum(f.grams * f.food_norm.fat_per_g for f in self.foods),1)
 
     @property
     def total_carbs(self):
         if not self.foods:
             return 0
-        return round(sum(f.grams * f.food_norm.carbs_per_g for f in self.foods), 2)
+        return round(sum(f.grams * f.food_norm.carbs_per_g for f in self.foods), 1)
 
     def to_dict(self):
         return {

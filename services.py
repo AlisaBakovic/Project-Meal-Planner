@@ -1,4 +1,6 @@
 from datetime import datetime
+
+from flask import session
 from sqlalchemy import or_
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -185,6 +187,9 @@ def create_meal(name, plan_id, day_number):
     session = SessionLocal()
 
     try:
+
+        if day_number <= 0:
+            raise ValueError("Day can not be zero or negative")
         meal = Meal(name=name, plan_id=plan_id, day_number=day_number)
 
         session.add(meal)
@@ -192,6 +197,10 @@ def create_meal(name, plan_id, day_number):
         session.refresh(meal)
 
         return meal.to_dict()
+
+    except Exception as e:
+        session.rollback()
+        raise e
 
     finally:
         session.close()
@@ -213,6 +222,25 @@ def get_meals_for_plan(plan_id):
     finally:
         session.close()
 
+def delete_meal(meal_id):
+
+    session = SessionLocal()
+
+    try:
+        meal = session.query(Meal).filter(Meal.id == meal_id).first()
+
+        if not meal:
+            raise ValueError("Meal not found")
+
+        meal_data = meal.to_dict()
+
+        session.delete(meal)
+        session.commit()
+
+        return meal_data
+
+    finally:
+        session.close()
 
 def get_clients_by_trainer(trainer_id):
 
