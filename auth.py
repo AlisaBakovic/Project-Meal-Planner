@@ -8,11 +8,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")
+SECRET_KEY = os.getenv("SECRET_KEY")
+
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY is missing")
 
 def generate_token(user):
 
-    exp = datetime.utcnow() + timedelta(hours=1)
+    exp = datetime.utcnow() + timedelta(days=7)
 
     payload = {"user_id": user.id, "role": user.role, "exp": exp}
 
@@ -37,7 +40,7 @@ def get_current_user():
     authorization = request.headers.get("Authorization")
 
     if not authorization:
-        raise ValueError("Missing token")
+        return None
 
     parts = authorization.split(" ")
 
@@ -50,10 +53,15 @@ def get_current_user():
     user_id = payload["user_id"]
 
     db = SessionLocal()
-    user = db.query(User).filter(User.id == user_id).first()
-    db.close()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+    finally:
+        db.close()
 
     if not user:
         raise ValueError("User not found")
+
+    if not user.is_active:
+        return None
 
     return user

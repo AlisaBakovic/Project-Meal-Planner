@@ -15,6 +15,7 @@ class User(Base):
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     trainer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    is_active = Column(Boolean, default=True)
 
     clients = relationship("User", back_populates="trainer", foreign_keys=[trainer_id])
     trainer = relationship("User", back_populates="clients", remote_side=[id])
@@ -34,6 +35,7 @@ class User(Base):
             "last_name": self.last_name,
             "role": self.role,
             "trainer_id": self.trainer_id,
+            "is_active": self.is_active
         }
 
 
@@ -49,8 +51,19 @@ class Invite(Base):
         DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
     expires_at = Column(DateTime)
+    revoked = Column(Boolean, default=False)
 
     trainer = relationship("User", back_populates="invites")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "email": self.email,
+            "trainer_id": self.trainer_id,
+            "used": self.used,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "token": self.token
+        }
 
 
 class Plan(Base):

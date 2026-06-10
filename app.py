@@ -13,15 +13,26 @@ from services import (
     register_trainer,
     create_food,
     create_food_norm,
-    get_food_norms, delete_food, update_food, delete_meal,
+    get_food_norms,
+    delete_food,
+    update_food,
+    delete_meal,
+    get_client_by_id,
+    create_invite,
+    validate_invite_token,
+    accept_invite,
+    revoke_invitation,
+    get_invitation,
+    deactivate_client,
 )
-from auth import decode_token, get_current_user
+from auth import get_current_user
 from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:5173"])
 
 Base.metadata.create_all(engine)
+
 
 @app.route("/register", methods=["POST"])
 def register_route():
@@ -54,18 +65,116 @@ def login_route():
         return jsonify({"error": "Missing data"}), 400
 
     try:
-        token = login_user(email=data["email"], password=data["password"])
-        return jsonify({"token": token}), 200
+        token, user = login_user(
+            email=data["email"],
+            password=data["password"]
+        )
+
+        return jsonify({
+            "token": token,
+            "first_name": user.first_name,
+            "role": user.role
+        }), 200
+
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+
+
+@app.route("/invites", methods=["POST"])
+def invite_route():
+
+    user = get_current_user()
+
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if user.role != "trainer":
+        return jsonify({"error": "Forbidden"}), 403
+
+    data = request.json
+
+    if not data:
+        return jsonify({"error": "Missing data"}), 400
+
+    try:
+        invite = create_invite(
+            email=data["email"],
+            trainer_id=user.id
+        )
+
+        return jsonify(invite), 201
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/invites/<token>", methods=["GET"])
+def validate_token_route(token):
+
+    try:
+        validate_token = validate_invite_token(token=token)
+
+        return jsonify(validate_token), 200
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/accept-invite", methods=["POST"])
+def accept_invite_route():
+
+    data = request.json
+
+    try:
+        accept_invitation = accept_invite(
+            token=data["token"],
+            first_name=data["first_name"],
+            last_name=data["last_name"],
+            password=data["password"]
+        )
+
+        return jsonify(accept_invitation), 200
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/invites/<int:invite_id>/revoke", methods=["PATCH"])
+def revoke_invitation_route(invite_id):
+
+    user = get_current_user()
+
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    revoke_invitation(invite_id, user.id)
+
+    return jsonify({"message": "Invitation revoked"}), 200
+
+
+@app.route("/invites", methods=["GET"])
+def get_invitations_route():
+
+    user = get_current_user()
+
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    invitations = get_invitation(user.id)
+
+    return jsonify(invitations)
 
 
 @app.route("/plans", methods=["POST"])
 def create_plan_route():
 
     user = get_current_user()
+
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
+
+    if user.role != "trainer":
+        return jsonify({"error": "Forbidden"}), 403
 
     data = request.json
 
@@ -77,6 +186,7 @@ def create_plan_route():
             client_id=data["client_id"],
             trainer_id=user.id,
         )
+
         return jsonify(plan), 201
 
     except ValueError as e:
@@ -87,10 +197,12 @@ def create_plan_route():
 def get_plans_route():
 
     user = get_current_user()
+
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
     plans = get_plans(user)
+
     return jsonify(plans)
 
 
@@ -98,13 +210,15 @@ def get_plans_route():
 def get_plans_by_id(plan_id):
 
     user = get_current_user()
+
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
-    plan = get_plan_by_id(plan_id)
+    plan = get_plan_by_id(plan_id, user)
 
     if not plan:
         return jsonify({"error": "Plan not found"}), 404
+
     return jsonify(plan)
 
 
@@ -112,12 +226,18 @@ def get_plans_by_id(plan_id):
 def delete_plan_by_id(plan_id):
 
     user = get_current_user()
+
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
+    if user.role != "trainer":
+        return jsonify({"error": "Forbidden"}), 403
+
     try:
-        delete_plan(plan_id)
+        delete_plan(plan_id, user)
+
         return jsonify({"message": "Plan deleted"}), 200
+
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
 
@@ -126,8 +246,12 @@ def delete_plan_by_id(plan_id):
 def update_plan_by_id(plan_id):
 
     user = get_current_user()
+
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
+
+    if user.role != "trainer":
+        return jsonify({"error": "Forbidden"}), 403
 
     data = request.json
 
@@ -138,8 +262,11 @@ def update_plan_by_id(plan_id):
             plan_type=data["plan_type"],
             start_date=data.get("start_date"),
             client_id=data["client_id"],
+            user=user,
         )
+
         return jsonify(plan), 200
+
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
 
@@ -148,6 +275,7 @@ def update_plan_by_id(plan_id):
 def create_meal_route(plan_id):
 
     user = get_current_user()
+
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -155,39 +283,47 @@ def create_meal_route(plan_id):
 
     try:
         meal = create_meal(
-            name=data["name"], plan_id=plan_id, day_number=data["day_number"]
+            name=data["name"],
+            plan_id=plan_id,
+            day_number=data["day_number"],
+            user=user
         )
+
         return jsonify(meal), 201
+
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+
 
 @app.route("/meals/<int:meal_id>", methods=["DELETE"])
 def delete_meal_route(meal_id):
 
-    try:
-        user = get_current_user()
-    except Exception:
-        return jsonify({"error": "Unauthorized"}), 401
+    user = get_current_user()
 
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
     try:
-        delete_meal(meal_id)
+        delete_meal(meal_id, user)
+
         return jsonify({"message": "Meal deleted"}), 200
+
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
+
 
 @app.route("/plans/<int:plan_id>/meals", methods=["GET"])
 def get_meals_by_plan_id(plan_id):
 
     user = get_current_user()
+
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
-    meals = get_meals_for_plan(plan_id)
+    meals = get_meals_for_plan(plan_id, user)
 
     return jsonify(meals)
+
 
 @app.route("/clients", methods=["GET"])
 def get_clients():
@@ -197,15 +333,49 @@ def get_clients():
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
+    if user.role != "trainer":
+        return jsonify({"error": "Forbidden"}), 403
+
     clients = get_clients_by_trainer(user.id)
 
     return jsonify(clients)
+
+
+@app.route("/clients/<int:client_id>", methods=["GET"])
+def get_client(client_id):
+
+    user = get_current_user()
+
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        client = get_client_by_id(client_id, user.id)
+
+        return jsonify(client), 201
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 404
+
+
+@app.route("/clients/<int:client_id>/deactivate", methods=["PATCH"])
+def deactivate_client_route(client_id):
+
+    user = get_current_user()
+
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    client = deactivate_client(client_id, user.id)
+
+    return jsonify(client), 200
 
 
 @app.route("/meals/<int:meal_id>/foods", methods=["POST"])
 def add_food_to_meal(meal_id):
 
     user = get_current_user()
+
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -213,7 +383,10 @@ def add_food_to_meal(meal_id):
 
     try:
         food = create_food(
-            meal_id=meal_id, food_norm_id=data["food_norm_id"], grams=data["grams"]
+            meal_id=meal_id,
+            food_norm_id=data["food_norm_id"],
+            grams=data["grams"],
+            user=user
         )
 
         return jsonify(food), 201
@@ -226,8 +399,12 @@ def add_food_to_meal(meal_id):
 def create_food_norm_route():
 
     user = get_current_user()
+
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
+
+    if user.role != "trainer":
+        return jsonify({"error": "Forbidden"}), 403
 
     data = request.json
 
@@ -243,6 +420,7 @@ def create_food_norm_route():
             carbs=data["carbs"],
             fat=data["fat"],
         )
+
         return jsonify(food), 201
 
     except ValueError as e:
@@ -253,12 +431,14 @@ def create_food_norm_route():
 def get_foods_route():
 
     user = get_current_user()
+
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
     foods = get_food_norms(user)
 
     return jsonify(foods)
+
 
 @app.route("/foods/<int:food_id>", methods=["DELETE"])
 def delete_food_route(food_id):
@@ -268,20 +448,28 @@ def delete_food_route(food_id):
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
+    if user.role != "trainer":
+        return jsonify({"error": "Forbidden"}), 403
+
     try:
-        delete_food(food_id)
+        delete_food(food_id, user)
 
         return jsonify({"message": "Food deleted"}), 200
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
 
+
 @app.route("/foods/<int:food_id>", methods=["PUT"])
 def update_food_route(food_id):
 
     user = get_current_user()
+
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
+
+    if user.role != "trainer":
+        return jsonify({"error": "Forbidden"}), 403
 
     data = request.json
 
@@ -292,11 +480,17 @@ def update_food_route(food_id):
         return jsonify({"error": "Grams is required"}), 400
 
     try:
-        food = update_food(food_id=food_id, grams=data.get("grams"))
+        food = update_food(
+            food_id=food_id,
+            grams=data.get("grams"),
+            user=user
+        )
+
         return jsonify(food), 200
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+
 
 if __name__ == "__main__":
     app.run(debug=True)
