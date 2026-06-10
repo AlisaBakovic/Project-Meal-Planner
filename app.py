@@ -31,11 +31,7 @@ from auth import get_current_user
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app,
-    origins="*",
-    supports_credentials=True,
-    expose_headers=["Content-Type", "X-CSRFToken"],
-    allow_headers=["Content-Type", "X-CSRFToken"])
+CORS(app, origins="*")
 
 Base.metadata.create_all(engine)
 
@@ -503,4 +499,4 @@ def update_food_route(food_id):
 
 
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)
