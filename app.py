@@ -1,3 +1,5 @@
+from http.client import responses
+
 from flask import Flask, request, jsonify
 from database import engine, Base
 from services import (
@@ -32,6 +34,10 @@ app = Flask(__name__)
 CORS(app, origins=["http://localhost:5173"])
 
 Base.metadata.create_all(engine)
+
+@app.route("/", methods=["GET"])
+def hello_route():
+    return jsonify({"Message": "Hello from backend"}), 200
 
 
 @app.route("/register", methods=["POST"])
