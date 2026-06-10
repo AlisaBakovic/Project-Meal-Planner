@@ -31,7 +31,11 @@ from auth import get_current_user
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:5173"])
+CORS(app,
+    origins="*",
+    supports_credentials=True,
+    expose_headers=["Content-Type", "X-CSRFToken"],
+    allow_headers=["Content-Type", "X-CSRFToken"])
 
 Base.metadata.create_all(engine)
 
