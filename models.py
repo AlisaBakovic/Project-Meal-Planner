@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, ForeignKey, Date, Boolean, DateTime
+from json.decoder import JSONObject
+
+from sqlalchemy import Column, Integer, String, ForeignKey, Date, Boolean, DateTime, JSON
 from sqlalchemy.orm import relationship
 from database import Base
 from sqlalchemy import Float
@@ -26,6 +28,7 @@ class User(Base):
         "Plan", back_populates="trainer", foreign_keys="Plan.trainer_id"
     )
     invites = relationship("Invite", back_populates="trainer")
+    questionnaires = relationship("Questionnaire", back_populates="client" )
 
     def to_dict(self):
         return {
@@ -63,6 +66,24 @@ class Invite(Base):
             "used": self.used,
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "token": self.token
+        }
+
+class Questionnaire(Base):
+    __tablename__ = "questionnaires"
+
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    editable_until = Column(DateTime, nullable=False)
+    answers = Column(JSON, nullable=False)
+
+    client = relationship("User", back_populates="questionnaires")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "client_id": self.client_id,
+            "editable_until": (self.editable_until.isoformat() if self.editable_until else None),
+            "answers": self.answers
         }
 
 

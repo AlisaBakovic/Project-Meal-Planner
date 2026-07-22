@@ -1,11 +1,14 @@
 import secrets
 from datetime import datetime, timedelta
+from multiprocessing.managers import rebuild_as_list
+
+from flask import session
 from sqlalchemy import or_
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from auth import generate_token
 from database import SessionLocal
-from models import Plan, Meal, User, FoodNorm, Food, Invite
+from models import Plan, Meal, User, FoodNorm, Food, Invite, Questionnaire
 
 
 def register_trainer(email, password, first_name, last_name):
@@ -196,8 +199,90 @@ def get_invitation(trainer_id):
     finally:
         session.close()
 
+def create_questionnaire(answers, user):
+
+    session = SessionLocal()
+
+    try:
+        if user.role != "client":
+            raise ValueError("Not authorized!")
+
+        existing_questionnaire = session.query(Questionnaire).filter(Questionnaire.client_id == user.id).first()
+
+        if existing_questionnaire:
+            raise ValueError("This questionnaire already exists!")
+
+        if not answers:
+            raise ValueError("Questionnaire answers are required!")
+
+        questionnaire = Questionnaire(
+            client_id=user.id,
+            editable_until=datetime.utcnow() + timedelta(hours=24),
+            answers=answers
+        )
+
+        session.add(questionnaire)
+        session.commit()
+        session.refresh(questionnaire)
+
+        return questionnaire.to_dict()
 
 
+    finally:
+        session.close()
+
+def validate_answers(answers):
+
+    if not answers:
+        raise ValueError("Questionnaire answers are required!")
+
+def get_client_questionnaire(user):
+
+    session = SessionLocal()
+
+    try:
+        questionnaire = session.query(Questionnaire).filter(Questionnaire.client_id == user.id).first()
+        if not questionnaire:
+            raise ValueError("Questionnaire not found")
+
+        return  questionnaire.to_dict()
+
+    finally:
+        session.close()
+
+def update_questionnaire(answers, user):
+
+     session = SessionLocal()
+
+     try:
+         questionnaire = session.query(Questionnaire).filter(Questionnaire.client_id == user.id).first()
+         if not questionnaire:
+            raise ValueError("Questionnaire not found")
+
+         if datetime.utcnow() > questionnaire.editable_until:
+             raise ValueError("Questionnaire can no longer be edited.")
+
+         questionnaire.answers = answers
+
+         session.commit()
+         session.refresh(questionnaire)
+         return questionnaire.to_dict()
+
+     finally:
+         session.close()
+
+def get_questionnaire_by_client_id(client_id):
+
+    session = SessionLocal()
+
+    try:
+        questionnaire = session.query(Questionnaire).filter(Questionnaire.client_id == client_id).first()
+        if not questionnaire:
+            raise ValueError("Questionnaire not found")
+        return questionnaire.to_dict()
+
+    finally:
+        session.close()
 
 def get_client_by_id(client_id, trainer_id):
 
@@ -500,7 +585,7 @@ def create_food_norm(user, name, calories, protein, carbs, fat):
         if user.role != "trainer":
             return None
 
-        name = name.strip().lower()
+        name = name.strip()
 
         existing = session.query(FoodNorm).filter(FoodNorm.name == name, FoodNorm.created_by == user.id).first()
 
@@ -543,6 +628,31 @@ def get_food_norms(user):
 
     finally:
         session.close()
+
+def delete_food_norm(food_id, user):
+
+    session = SessionLocal()
+
+    try:
+        if user.role != "trainer":
+            return None
+
+        food_norm = session.query(FoodNorm).filter(FoodNorm.id == food_id, FoodNorm.created_by == user.id).first()
+
+        if not food_norm:
+            raise ValueError("Food not found")
+
+        food_data = food_norm.to_dict()
+
+        session.delete(food_norm)
+        session.commit()
+
+        return food_data
+
+    finally:
+        session.close()
+
+
 
 def create_food(meal_id, food_norm_id, grams, user):
 

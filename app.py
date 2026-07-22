@@ -25,13 +25,14 @@ from services import (
     accept_invite,
     revoke_invitation,
     get_invitation,
-    deactivate_client,
+    deactivate_client, delete_food_norm, create_questionnaire, get_client_questionnaire, update_questionnaire,
+    get_questionnaire_by_client_id,
 )
 from auth import get_current_user
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app, origins="*")
+CORS(app, origins=["http://localhost:5173"])
 
 Base.metadata.create_all(engine)
 
@@ -170,6 +171,75 @@ def get_invitations_route():
 
     return jsonify(invitations)
 
+@app.route("/questionnaire", methods=["POST"])
+def create_questionnaire_route():
+
+    user = get_current_user()
+
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if user.role != "client":
+        return jsonify({"error": "Forbidden"}), 403
+
+    data = request.json
+
+    try:
+        questionnaire = create_questionnaire(
+            answers=data.get("answers"),
+            user=user,
+        )
+
+        return  jsonify(questionnaire), 201
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route("/questionnaire", methods=["GET"])
+def get_questionnaire_route():
+    user = get_current_user()
+
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if user.role != "client":
+        return jsonify({"error": "Forbidden"}), 403
+
+    questionnaire = get_client_questionnaire(user)
+
+    return jsonify(questionnaire)
+
+@app.route("/questionnaire", methods=["PUT"])
+def update_questionnaire_route():
+    user = get_current_user()
+
+    if user.role != "client":
+        return jsonify({"error": "Forbidden"}), 403
+
+    data = request.get_json()
+    try:
+        questionnaire = update_questionnaire(data["answers"], user)
+
+        return jsonify(questionnaire), 200
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route("/trainer/questionnaire/<int:client_id>", methods=["GET"])
+def get_questionnaire_by_client_id_route(client_id):
+
+    user = get_current_user()
+
+    if user.role != "trainer":
+        return jsonify({"error": "Forbidden"}), 403
+
+    try:
+        questionnaire = get_questionnaire_by_client_id(client_id)
+
+        return jsonify(questionnaire), 200
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
 
 @app.route("/plans", methods=["POST"])
 def create_plan_route():
@@ -432,6 +502,24 @@ def create_food_norm_route():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
+@app.route("/foods/<int:food_id>", methods=["DELETE"])
+def delete_food_norm_route(food_id):
+
+    user = get_current_user()
+
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if user.role != "trainer":
+        return jsonify({"error": "Forbidden"}), 403
+
+    try:
+        delete_food_norm(food_id, user)
+
+        return jsonify({"message": "Food deleted"}), 200
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
 
 @app.route("/foods", methods=["GET"])
 def get_foods_route():
