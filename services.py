@@ -282,7 +282,7 @@ def get_client_questionnaire(user):
     try:
         questionnaire = session.query(Questionnaire).filter(Questionnaire.client_id == user.id).first()
         if not questionnaire:
-            raise ValueError("Questionnaire not found")
+            return None
 
         return  questionnaire.to_dict()
 
