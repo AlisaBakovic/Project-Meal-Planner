@@ -1,15 +1,18 @@
 import secrets
 from datetime import datetime, timedelta
-from multiprocessing.managers import rebuild_as_list
 
 from flask import session
 from sqlalchemy import or_
 from werkzeug.security import generate_password_hash, check_password_hash
-
 from auth import generate_token
 from database import SessionLocal
 from models import Plan, Meal, User, FoodNorm, Food, Invite, Questionnaire
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
+
+FRONTEND_URL = os.getenv("FRONTEND_URL")
 
 def register_trainer(email, password, first_name, last_name):
     session = SessionLocal()
@@ -86,7 +89,7 @@ def create_invite(email, trainer_id):
         if existing_client:
             raise ValueError("This email already exists!")
 
-        existing_invite = session.query(Invite).filter(Invite.used.is_(False), Invite.email == email).first()
+        existing_invite = session.query(Invite).filter(Invite.used.is_(False), Invite.revoked.is_(False), Invite.email == email).first()
         if existing_invite:
             raise ValueError("This invitation has been already sent!")
 
@@ -102,7 +105,10 @@ def create_invite(email, trainer_id):
         session.commit()
         session.refresh(invite)
 
-        return invite.to_dict()
+        invite_link = f"{FRONTEND_URL}/invite/{invite.token}"
+
+        return {**invite.to_dict(),
+                "invite_link": invite_link}
 
     finally:
         session.close()
@@ -177,12 +183,45 @@ def revoke_invitation(invite_id, trainer_id):
         if not invite:
             raise ValueError("Invitation not found!")
 
+        if invite.revoked:
+            raise ValueError("Invitation has already been revoked.")
+
         invite.revoked = True
 
         session.commit()
         session.refresh(invite)
 
-        return invite
+        return invite.to_dict()
+
+    finally:
+        session.close()
+
+
+def resend_invitation(invite_id, trainer_id):
+    session = SessionLocal()
+
+    try:
+        invite = session.query(Invite).filter(Invite.id == invite_id, Invite.trainer_id == trainer_id).first()
+
+        if not invite:
+            raise ValueError("Invitation not found!")
+
+        if invite.used:
+            raise ValueError("Invitation has already been used.")
+
+        if invite.revoked:
+            raise ValueError("Invitation has been revoked.")
+
+        invite.token = secrets.token_urlsafe(32)
+        invite.expires_at = datetime.utcnow() + timedelta(days=7)
+
+        invite_link = f"https://meal-planner-frontend-lemon.vercel.app/invite/{invite.token}"
+
+        session.commit()
+        session.refresh(invite)
+
+        return {**invite.to_dict(),
+                "invite_link": invite_link}
 
     finally:
         session.close()
@@ -217,7 +256,7 @@ def create_questionnaire(answers, user):
 
         questionnaire = Questionnaire(
             client_id=user.id,
-            editable_until=datetime.utcnow() + timedelta(hours=24),
+            editable_until=datetime.utcnow() + timedelta(days=50),
             answers=answers
         )
 
@@ -299,8 +338,14 @@ def get_client_by_id(client_id, trainer_id):
         session.close()
 
 
-def create_plan(name, plan_type, client_id, trainer_id, start_date=None):
+def create_plan(name, plan_type, client_id, trainer_id, daily_calories, daily_protein, daily_fat, daily_carbs, daily_water, coach_notes, start_date=None):
     session = SessionLocal()
+
+    daily_calories = int(daily_calories) if daily_calories else None
+    daily_protein = int(daily_protein) if daily_protein else None
+    daily_carbs = int(daily_carbs) if daily_carbs else None
+    daily_fat = int(daily_fat) if daily_fat else None
+    daily_water = float(daily_water) if daily_water else None
 
     try:
         if not name.strip():
@@ -314,6 +359,18 @@ def create_plan(name, plan_type, client_id, trainer_id, start_date=None):
 
         if plan_type == "template" and start_date:
             raise ValueError("Template plan cannot have start_date")
+
+        if any(
+                value is not None and value < 0
+                for value in [
+                    daily_calories,
+                    daily_protein,
+                    daily_carbs,
+                    daily_fat,
+                    daily_water,
+                ]
+        ):
+            raise ValueError("The values should not be negative.")
 
         if start_date:
             start_date = datetime.fromisoformat(start_date).date()
@@ -333,6 +390,12 @@ def create_plan(name, plan_type, client_id, trainer_id, start_date=None):
             start_date=start_date,
             client_id=client_id,
             trainer_id=trainer_id,
+            daily_calories=daily_calories,
+            daily_protein=daily_protein,
+            daily_fat=daily_fat,
+            daily_carbs=daily_carbs,
+            daily_water=daily_water,
+            coach_notes=coach_notes
         )
 
         session.add(plan)
@@ -405,7 +468,7 @@ def delete_plan(plan_id, user):
     finally:
         session.close()
 
-def update_plan(plan_id, name, plan_type, client_id, user, start_date=None):
+def update_plan(plan_id, name, plan_type, client_id, user, daily_calories, daily_protein, daily_carbs, daily_fat, daily_water, coach_notes, start_date=None):
 
     session = SessionLocal()
 
@@ -451,6 +514,12 @@ def update_plan(plan_id, name, plan_type, client_id, user, start_date=None):
         plan.plan_type = plan_type
         plan.client_id = client_id
         plan.start_date = start_date
+        plan.daily_calories = daily_calories
+        plan.daily_protein = daily_protein
+        plan.daily_carbs = daily_carbs
+        plan.daily_fat = daily_fat
+        plan.daily_water = daily_water
+        plan.coach_notes = coach_notes
 
         session.commit()
         session.refresh(plan)
@@ -542,6 +611,29 @@ def delete_meal(meal_id, user):
         session.commit()
 
         return meal_data
+
+    finally:
+        session.close()
+
+def update_meal(meal_id, user, name):
+
+    session = SessionLocal()
+
+    try:
+        meal = session.query(Meal).filter(Meal.id == meal_id).first()
+
+        if not meal:
+            raise ValueError("Food not found")
+
+        if user.role != "trainer":
+            return None
+
+        meal.name = name
+
+        session.commit()
+        session.refresh(meal)
+
+        return meal.to_dict()
 
     finally:
         session.close()

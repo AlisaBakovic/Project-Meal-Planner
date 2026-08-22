@@ -65,7 +65,6 @@ class Invite(Base):
             "trainer_id": self.trainer_id,
             "used": self.used,
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
-            "token": self.token
         }
 
 class Questionnaire(Base):
@@ -96,6 +95,12 @@ class Plan(Base):
     start_date = Column(Date, nullable=True)
     client_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     trainer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    daily_calories = Column(Integer)
+    daily_protein = Column(Integer)
+    daily_fat = Column(Integer)
+    daily_carbs = Column(Integer)
+    daily_water = Column(Float)
+    coach_notes = Column(String)
 
     meals = relationship("Meal", back_populates="plan", cascade="all, delete-orphan")
     client = relationship(
@@ -113,6 +118,12 @@ class Plan(Base):
             "client_id": self.client_id,
             "trainer_id": self.trainer_id,
             "start_date": self.start_date.isoformat() if self.start_date else None,
+            "daily_calories": self.daily_calories,
+            "daily_protein": self.daily_protein,
+            "daily_fat": self.daily_fat,
+            "daily_carbs": self.daily_carbs,
+            "daily_water": self.daily_water,
+            "coach_notes": self.coach_notes
         }
 
 

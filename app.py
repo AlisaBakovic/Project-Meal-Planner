@@ -1,5 +1,3 @@
-from http.client import responses
-
 from flask import Flask, request, jsonify
 from database import engine, Base
 from services import (
@@ -26,10 +24,16 @@ from services import (
     revoke_invitation,
     get_invitation,
     deactivate_client, delete_food_norm, create_questionnaire, get_client_questionnaire, update_questionnaire,
-    get_questionnaire_by_client_id,
+    get_questionnaire_by_client_id, resend_invitation, update_meal,
 )
 from auth import get_current_user
 from flask_cors import CORS
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+FRONTEND_URL = os.getenv("FRONTEND_URL")
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:5173"])
@@ -154,10 +158,31 @@ def revoke_invitation_route(invite_id):
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
-    revoke_invitation(invite_id, user.id)
+    if user.role != "trainer":
+        return jsonify({"error": "Forbidden"}), 403
 
-    return jsonify({"message": "Invitation revoked"}), 200
+    try:
+        revoke_invitation(invite_id, user.id)
+        return jsonify({"message": "Invitation revoked"}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
 
+@app.route("/invites/<int:invite_id>/resend", methods=["PATCH"])
+def resend_invitation_route(invite_id):
+
+    user = get_current_user()
+
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if user.role != "trainer":
+        return jsonify({"error": "Forbidden"}), 403
+
+    try:
+        invite = resend_invitation(invite_id, user.id)
+        return jsonify(invite), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
 
 @app.route("/invites", methods=["GET"])
 def get_invitations_route():
@@ -261,6 +286,12 @@ def create_plan_route():
             start_date=data.get("start_date"),
             client_id=data["client_id"],
             trainer_id=user.id,
+            daily_calories=data["daily_calories"],
+            daily_protein=data["daily_protein"],
+            daily_fat=data["daily_fat"],
+            daily_carbs=data["daily_carbs"],
+            daily_water=data["daily_water"],
+            coach_notes=data["coach_notes"]
         )
 
         return jsonify(plan), 201
@@ -339,7 +370,14 @@ def update_plan_by_id(plan_id):
             start_date=data.get("start_date"),
             client_id=data["client_id"],
             user=user,
+            daily_calories = data["daily_calories"],
+            daily_protein = data["daily_protein"],
+            daily_carbs = data["daily_carbs"],
+            daily_fat = data["daily_fat"],
+            daily_water = data["daily_water"],
+            coach_notes = data["coach_notes"]
         )
+
 
         return jsonify(plan), 200
 
@@ -386,7 +424,27 @@ def delete_meal_route(meal_id):
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
+@app.route("/meals/<int:meal_id>", methods=["PUT"])
+def update_meal_route(meal_id):
 
+    user = get_current_user()
+
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.json
+
+    try:
+        meal = update_meal(
+            user=user,
+            meal_id=meal_id,
+            name=data["name"]
+        )
+
+        return jsonify(meal), 200
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
 @app.route("/plans/<int:plan_id>/meals", methods=["GET"])
 def get_meals_by_plan_id(plan_id):
